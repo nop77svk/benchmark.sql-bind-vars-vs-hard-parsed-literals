@@ -6,11 +6,12 @@ using BenchmarkDotNet.Columns;
 using Docker.DotNet.Models;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Configurations;
+using DotNet.Testcontainers.Containers;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 internal static class Program
 {
     private const string OracleDockerImageUri = @"container-registry.oracle.com/database/free:latest";
-    private const float OracleDockerContainerTotalMemoryGB = 2.5f;
     private const string OracleDockerSysPassword = @"abc";
     private const string OracleDockerDatabaseCharset = @"AL32UTF8";
 
@@ -18,7 +19,7 @@ internal static class Program
     private static readonly Regex _rxCustomScriptsExecutionStarted = new Regex(@"^\s*Executing\s+user\s+defined\s+scripts\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromSeconds(5));
     private static readonly Regex _rxCustomScriptsExecutionFinished = new Regex(@"^\s*DONE:\s*Executing\s+user\s+defined\s+scripts\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, TimeSpan.FromSeconds(5));
 
-    private static readonly Regex _rxLoggedExceptions = new Regex(@"^(ORA|TNS|SP2)-\d+\s*:\s*", RegexOptions.Compiled | RegexOptions.Multiline);
+    private static readonly Regex _rxLoggedExceptions = new Regex(@"^(\d{1,4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2}(\.\d+)?\S+\s*)?(ORA|TNS|SP2)-\d+\s*:", RegexOptions.Compiled | RegexOptions.Multiline);
 
     private static async Task Main(string[] args)
     {
@@ -28,7 +29,7 @@ internal static class Program
             .WithAutoRemove(true)
             .WithCleanUp(true)
             .WithName("testcontainer")
-            .WithPortBinding(hostPort: 1529, containerPort: 1521)
+            .WithPortBinding(1521)
             .WithEnvironment(@"ORACLE_PWD", OracleDockerSysPassword)
             .WithEnvironment(@"ORACLE_CHARACTERSET", OracleDockerDatabaseCharset)
             .WithEnvironment(@"ENABLE_ARCHIVELOG", @"false")
@@ -45,12 +46,7 @@ internal static class Program
         {
             Console.WriteLine("Starting Oracle DB");
             await container.StartAsync();
-
-            (string containerStdOut, string containerStdErr) = await container.GetLogsAsync();
-            if (_rxLoggedExceptions.IsMatch(containerStdOut) || _rxLoggedExceptions.IsMatch(containerStdErr))
-            {
-                throw new DotNet.Testcontainers.Containers.ContainerNotRunningException(container.Id, containerStdOut, containerStdErr, 0, null);
-            }
+            await container.EnsureNoErrorsInContainerLogs();
 
             Console.WriteLine("Press \"any key\" to finish");
             Console.ReadKey();
@@ -58,6 +54,15 @@ internal static class Program
         finally
         {
             await container.StopAsync();
+        }
+    }
+
+    private static async Task EnsureNoErrorsInContainerLogs(this IContainer container)
+    {
+        (string containerStdOut, string containerStdErr) = await container.GetLogsAsync();
+        if (_rxLoggedExceptions.IsMatch(containerStdOut) || _rxLoggedExceptions.IsMatch(containerStdErr))
+        {
+            throw new ContainerNotRunningException(container.Id, containerStdOut, containerStdErr, 0, null);
         }
     }
 }
