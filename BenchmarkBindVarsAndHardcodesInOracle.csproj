@@ -9,4 +9,10 @@
     <PackageReference Include="Testcontainers.Oracle" Version="4.15.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="OracleStartup\*.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

@@ -1,4 +1,8 @@
-﻿create user benchmark
+alter session set container = freepdb1;
+
+----------------------------------------------------------------------------------------------------
+
+create user benchmark
 identified by benchmark
 default tablespace users
 quota unlimited on users
