@@ -114,6 +114,31 @@ public class TheBenchmark
         }
     }
 
+    [Benchmark]
+    public async Task EmptyBenchmark()
+    {
+        ArgumentNullException.ThrowIfNull(_connection);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        using OracleCommand command = _connection.CreateCommand();
+        command.CommandType = CommandType.Text;
+        command.CommandText = """
+            select id
+            from t_test_data
+            where id = :id
+            """;
+
+        command.Parameters.Add("id", OracleDbType.Int32, _lastId + 1, ParameterDirection.Input);
+        int? fetchedId = _lastId + 1; // note: This is the place where normally the query execution would take place.
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
 #pragma warning disable S2077
     [Benchmark]
     public async Task AdoNetWithHardCodedLiterals()
