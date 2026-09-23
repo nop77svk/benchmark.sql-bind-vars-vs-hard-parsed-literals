@@ -1,7 +1,3 @@
-alter session set container = freepdb1;
-
-----------------------------------------------------------------------------------------------------
-
 truncate table benchmark.t_test_data drop storage;
 
 -- note: Inserts 25m rows. Takes some time. Be patient!
