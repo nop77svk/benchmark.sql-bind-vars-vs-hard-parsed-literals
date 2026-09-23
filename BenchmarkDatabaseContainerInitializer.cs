@@ -8,7 +8,7 @@ using DotNet.Testcontainers.Containers;
 using Oracle.ManagedDataAccess.Client;
 using Testcontainers.Oracle;
 
-internal class BenchmarkDatabaseContainerWrapper : IAsyncDisposable
+public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
 {
     private const string OracleDockerImageUri = @"container-registry.oracle.com/database/free:latest";
     private const string OracleDockerDatabaseCharset = @"AL32UTF8";
@@ -29,23 +29,22 @@ internal class BenchmarkDatabaseContainerWrapper : IAsyncDisposable
 
     public OracleContainer Container { get; }
 
-    public static async Task<BenchmarkDatabaseContainerWrapper> CreateAsync(CancellationToken cancellationToken)
+    public static async Task<BenchmarkDatabaseContainerInitializer> CreateAsync(int hostPort, CancellationToken cancellationToken)
     {
-        BenchmarkDatabaseContainerWrapper result = new BenchmarkDatabaseContainerWrapper();
+        BenchmarkDatabaseContainerInitializer result = new BenchmarkDatabaseContainerInitializer(hostPort);
         await result.Container.StartAsync(cancellationToken);
         await EnsureNoErrorsInContainerLogs(result.Container, cancellationToken);
         return result;
     }
 
-    private BenchmarkDatabaseContainerWrapper()
-    {
-        OracleBuilder builder = new OracleBuilder(OracleDockerImageUri);
+    public static string GetBasicDatabaseConnectionDataSource(string hostAddress, int servicePort, string serviceName, string protocol = "TCP")
+        => $"(DESCRIPTION=(ADDRESS=(PROTOCOL={protocol})(HOST={hostAddress})(PORT={servicePort}))(CONNECT_DATA=(SERVICE_NAME={serviceName})))";
 
-        Container = builder
+    private BenchmarkDatabaseContainerInitializer(int? hostPort = null)
+    {
+        OracleBuilder builder = new OracleBuilder(OracleDockerImageUri)
             .WithAutoRemove(true)
             .WithCleanUp(true)
-            .WithName("testcontainer")
-            .WithPortBinding(1521, assignRandomHostPort: true)
             .WithEnvironment(@"ORACLE_PWD", _oracleDockerDatabaseSysPassword)
             .WithEnvironment(@"ORACLE_CHARACTERSET", OracleDockerDatabaseCharset)
             .WithEnvironment(@"ENABLE_ARCHIVELOG", @"false")
@@ -55,8 +54,18 @@ internal class BenchmarkDatabaseContainerWrapper : IAsyncDisposable
                 .UntilMessageIsLogged(_rxDatabaseIsReadyToUse)
                 .UntilMessageIsLogged(_rxCustomScriptsExecutionStarted)
                 .UntilMessageIsLogged(_rxCustomScriptsExecutionFinished)
-            )
-            .Build();
+            );
+
+        if (hostPort == null)
+        {
+            builder = builder.WithPortBinding(port: 1521, assignRandomHostPort: true);
+        }
+        else
+        {
+            builder = builder.WithPortBinding(hostPort: hostPort ?? 1521, containerPort: 1521);
+        }
+
+        Container = builder.Build();
     }
 
     public async ValueTask DisposeAsync()
@@ -66,35 +75,29 @@ internal class BenchmarkDatabaseContainerWrapper : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    public async Task SeedTheTestDataAsync(CancellationToken cancellationToken)
+    public OracleConnection GetDatabaseConnection(string userName, string password)
     {
         OracleConnectionStringBuilder connectionStringBuilder = new OracleConnectionStringBuilder();
-        connectionStringBuilder.DataSource = $"(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=127.0.0.1)(PORT={Container.GetMappedPublicPort()}))(CONNECT_DATA=(SERVICE_NAME=freepdb1)))";
-        connectionStringBuilder.UserID = "SYSTEM";
-        connectionStringBuilder.Password = _oracleDockerDatabaseSysPassword;
+        connectionStringBuilder.DataSource = GetBasicDatabaseConnectionDataSource(
+            hostAddress: "127.0.0.1",
+            servicePort: Container.GetMappedPublicPort(),
+            serviceName: "freepdb1"
+        );
+        connectionStringBuilder.UserID = userName;
+        connectionStringBuilder.Password = password;
         string connectionString = connectionStringBuilder.ConnectionString;
+        Console.WriteLine($"Connection string = {connectionString}");
 
-        using OracleConnection connection = new OracleConnection(connectionString);
-        await connection.OpenAsync(cancellationToken);
-
-        await using OracleTransaction transaction = (OracleTransaction)await connection.BeginTransactionAsync(cancellationToken);
-
-        string pathToScripts = Path.Combine(AppContext.BaseDirectory, @"DatabaseSeed");
-        foreach (var scriptName in Directory.EnumerateFiles(pathToScripts, "*.sql"))
+        OracleConnection result = new OracleConnection(connectionString)
         {
-            string scriptContents = await File.ReadAllTextAsync(scriptName, cancellationToken);
+            AutoCommit = false
+        };
 
-            using OracleCommand command = connection.CreateCommand();
-            command.CommandText = scriptContents;
-            command.CommandType = CommandType.Text;
-            command.CommandTimeout = 0;
-            command.Transaction = transaction;
-            await command.ExecuteNonQueryAsync(cancellationToken);
-        }
-
-        await transaction.CommitAsync(cancellationToken);
-        await connection.CloseAsync();
+        return result;
     }
+
+    public OracleConnection GetSystemUserDatabaseConnection()
+        => GetDatabaseConnection("SYSTEM", _oracleDockerDatabaseSysPassword);
 
     protected virtual async ValueTask DisposeAsync(bool disposing)
     {
