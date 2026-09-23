@@ -13,12 +13,6 @@ public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
     private const string OracleDockerImageUri = @"container-registry.oracle.com/database/free:latest";
     private const string OracleDockerDatabaseCharset = @"AL32UTF8";
 
-    private static readonly char[] _oracleDockerDatabasePasswordChars = Enumerable.Range(33, 93)
-        .Select(x => (char)(byte)x)
-        .Where(char.IsAsciiLetterOrDigit)
-        .ToArray();
-    private static readonly string _oracleDockerDatabaseSysPassword = Random.Shared.GetString(_oracleDockerDatabasePasswordChars, 32);
-
     private static readonly TimeSpan _logsRegexpParsingTimeOut = TimeSpan.FromSeconds(5);
     private static readonly Regex _rxDatabaseIsReadyToUse = new Regex(@"^\s*DATABASE\s+IS\s+READY\s+TO\s+USE\s*!\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
     private static readonly Regex _rxCustomScriptsExecutionStarted = new Regex(@"^\s*Executing\s+user\s+defined\s+scripts\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
@@ -45,7 +39,7 @@ public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
         OracleBuilder builder = new OracleBuilder(OracleDockerImageUri)
             .WithAutoRemove(true)
             .WithCleanUp(true)
-            .WithEnvironment(@"ORACLE_PWD", _oracleDockerDatabaseSysPassword)
+            .WithEnvironment(@"ORACLE_PWD", GlobalContext.SysDbPw)
             .WithEnvironment(@"ORACLE_CHARACTERSET", OracleDockerDatabaseCharset)
             .WithEnvironment(@"ENABLE_ARCHIVELOG", @"false")
             .WithEnvironment(@"ENABLE_FORCE_LOGGING", @"false")
@@ -97,7 +91,7 @@ public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
     }
 
     public OracleConnection GetSystemUserDatabaseConnection()
-        => GetDatabaseConnection("SYSTEM", _oracleDockerDatabaseSysPassword);
+        => GetDatabaseConnection("SYSTEM", GlobalContext.SysDbPw);
 
     protected virtual async ValueTask DisposeAsync(bool disposing)
     {

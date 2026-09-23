@@ -17,7 +17,8 @@ drop table if exists benchmark.t_test_data purge;
 
 create table benchmark.t_test_data
 (
-    id                  integer not null primary key
+    id                  integer not null,
+    constraint PK_test_data primary key (id) using index reverse
 )
 organization index
 ;

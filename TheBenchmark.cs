@@ -1,17 +1,19 @@
 namespace BenchmarkBindVarsAndHardcodesInOracle;
 #pragma warning disable S112
+#pragma warning disable SA1116
 
 using System.Data;
+using BenchmarkBindVarsAndHardcodesInOracle.Models;
 using BenchmarkDotNet.Attributes;
-using Microsoft.Diagnostics.Utilities;
+using Microsoft.EntityFrameworkCore;
 using Oracle.ManagedDataAccess.Client;
 
 public class TheBenchmark
     : IAsyncDisposable
 {
-    private readonly Lock lastIdLock = new();
     private readonly CancellationTokenSource _cancellationTokenSource = new CancellationTokenSource();
     private OracleConnection? _connection;
+    private AppDbContext? _dbContext;
 
     private int _lastId = -1;
     private int _seededRows = -1;
@@ -73,24 +75,36 @@ public class TheBenchmark
         {
             DataSource = BenchmarkDatabaseContainerInitializer.GetBasicDatabaseConnectionDataSource(
                 hostAddress: "127.0.0.1",
-                servicePort: BenchmarkConfig.ContainerHostPort,
+                servicePort: GlobalContext.ContainerHostPort,
                 serviceName: "freepdb1"
             ),
-            UserID = BenchmarkConfig.BenchmarkDbUser,
-            Password = BenchmarkConfig.BenchmarkDbPw
+            UserID = GlobalContext.BenchmarkDbUser,
+            Password = GlobalContext.BenchmarkDbPw
         };
-        _connection = new OracleConnection(connectionStringBuilder.ConnectionString);
-        Console.WriteLine($"*** Connection string = {_connection.ConnectionString}");
+
+        string connectionString = connectionStringBuilder.ConnectionString;
+        Console.WriteLine($"*** Connection string = {connectionString}");
+
+        _connection = new OracleConnection(connectionString);
         await _connection.OpenAsync(_cancellationTokenSource.Token);
 
-        _seededRows = BenchmarkConfig.RowsToSeed;
+        _dbContext = new AppDbContext()
+        {
+            ConnectionString = connectionString
+        };
+
+        _seededRows = GlobalContext.RowsToSeed;
         _lastId = -1;
+
+        await FlushSharedPoolAsync(_cancellationTokenSource.Token);
     }
 
     [GlobalCleanup]
     public async Task GlobalCleanup()
     {
         Console.WriteLine("*** Global cleanup");
+
+        await FlushSharedPoolAsync(_cancellationTokenSource.Token);
 
         if (_connection != null)
         {
@@ -103,6 +117,11 @@ public class TheBenchmark
 
     public async ValueTask DisposeAsync()
     {
+        if (_dbContext != null)
+        {
+            await _dbContext.DisposeAsync();
+        }
+
         if (_connection != null)
         {
             await _connection.DisposeAsync();
@@ -115,7 +134,7 @@ public class TheBenchmark
     }
 
     [Benchmark]
-    public async Task EmptyBenchmark()
+    public async ValueTask AdoNetEmptyBenchmark()
     {
         ArgumentNullException.ThrowIfNull(_connection);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
@@ -141,7 +160,7 @@ public class TheBenchmark
 
 #pragma warning disable S2077
     [Benchmark]
-    public async Task AdoNetWithHardCodedLiterals()
+    public async ValueTask AdoNetWithHardCodedLiterals()
     {
         ArgumentNullException.ThrowIfNull(_connection);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
@@ -166,7 +185,7 @@ public class TheBenchmark
 #pragma warning restore S2077
 
     [Benchmark]
-    public async Task AdoNetWithBindVariables()
+    public async ValueTask AdoNetWithBindVariables()
     {
         ArgumentNullException.ThrowIfNull(_connection);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
@@ -188,5 +207,138 @@ public class TheBenchmark
         {
             throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
         }
+    }
+
+    [Benchmark]
+    public async ValueTask EntityFrameworkCoreWithLinq()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _dbContext.TestData
+            .AsNoTracking()
+            .Where(x => x.Id == _lastId + 1)
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(_cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    [Benchmark]
+    public async ValueTask EntityFrameworkCoreFromSql()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _dbContext.TestData
+            .FromSql($"""
+                select id
+                from t_test_data
+                where id = {_lastId} + 1
+                """)
+            .AsNoTracking()
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(_cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    [Benchmark]
+    public async ValueTask EntityFrameworkCoreFromSqlInterpolated()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _dbContext.TestData
+            .FromSqlInterpolated($"""
+                select id
+                from t_test_data
+                where id = {_lastId} + 1
+                """)
+            .AsNoTracking()
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(_cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    [Benchmark]
+    public async ValueTask EntityFrameworkCoreFromSqlRaw()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _dbContext.TestData
+            .FromSqlRaw("""
+                select id
+                from t_test_data
+                where id = {0}
+                """,
+                _lastId + 1
+            )
+            .AsNoTracking()
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(_cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    [Benchmark]
+    public async ValueTask EntityFrameworkCoreFromSqlRawHardCoded()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _dbContext.TestData
+            .FromSqlRaw($"""
+                select id
+                from t_test_data
+                where id = {_lastId + 1}
+                """
+            )
+            .AsNoTracking()
+            .Select(x => x.Id)
+            .FirstOrDefaultAsync(_cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    private static async Task FlushSharedPoolAsync(CancellationToken cancellationToken)
+    {
+        await using OracleConnection sysConnection = new OracleConnection(GlobalContext.SysDbaConnectionString);
+        await sysConnection.OpenAsync(cancellationToken);
+
+        await using OracleCommand flushSharedPool = sysConnection.CreateCommand();
+        flushSharedPool.CommandText = "alter system flush shared_pool";
+        flushSharedPool.CommandType = CommandType.Text;
+
+        await flushSharedPool.ExecuteNonQueryAsync(cancellationToken);
+
+        await sysConnection.CloseAsync();
     }
 }
