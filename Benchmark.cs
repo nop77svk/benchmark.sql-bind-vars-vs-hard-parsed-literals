@@ -1,9 +1,4 @@
-﻿namespace BenchmarkBindVarsAndHardcodesInOracle;
-
-using System;
-using System.Collections.Generic;
-using System.Text;
-using BenchmarkDotNet;
+namespace BenchmarkBindVarsAndHardcodesInOracle;
 
 public class Benchmark
 {
