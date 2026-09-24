@@ -12,7 +12,7 @@ internal static class Program
         CancellationToken cancellationToken = CancellationToken.None;
 
         Console.WriteLine("*** Initializing the test container");
-        await using BenchmarkDatabaseContainerInitializer containerInitializer = await BenchmarkDatabaseContainerInitializer.CreateAsync(GlobalContext.ContainerHostPort, cancellationToken);
+        await using DatabaseContainerInitialiser containerInitializer = await DatabaseContainerInitialiser.CreateAsync(GlobalContext.ContainerHostPort, cancellationToken);
 
         Console.WriteLine("*** Seeding the test data");
         using (OracleConnection benchmarkConnection = containerInitializer.GetDatabaseConnection(GlobalContext.BenchmarkDbUser, GlobalContext.BenchmarkDbPw))

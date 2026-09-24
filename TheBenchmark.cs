@@ -73,7 +73,7 @@ public class TheBenchmark
         Console.WriteLine("*** Global setup");
         var connectionStringBuilder = new OracleConnectionStringBuilder()
         {
-            DataSource = BenchmarkDatabaseContainerInitializer.GetBasicDatabaseConnectionDataSource(
+            DataSource = DatabaseContainerInitialiser.GetBasicDatabaseConnectionDataSource(
                 hostAddress: "127.0.0.1",
                 servicePort: GlobalContext.ContainerHostPort,
                 serviceName: "freepdb1"
@@ -230,7 +230,7 @@ public class TheBenchmark
     }
 
     [Benchmark]
-    public async ValueTask EntityFrameworkCoreFromSql()
+    public async ValueTask EntityFrameworkCoreFromSqlOnFormattableString()
     {
         ArgumentNullException.ThrowIfNull(_dbContext);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
@@ -241,7 +241,7 @@ public class TheBenchmark
             .FromSql($"""
                 select id
                 from t_test_data
-                where id = {_lastId} + 1
+                where id = {_lastId + 1}
                 """)
             .AsNoTracking()
             .Select(x => x.Id)
@@ -265,7 +265,7 @@ public class TheBenchmark
             .FromSqlInterpolated($"""
                 select id
                 from t_test_data
-                where id = {_lastId} + 1
+                where id = {_lastId + 1}
                 """)
             .AsNoTracking()
             .Select(x => x.Id)
@@ -278,7 +278,7 @@ public class TheBenchmark
     }
 
     [Benchmark]
-    public async ValueTask EntityFrameworkCoreFromSqlRaw()
+    public async ValueTask EntityFrameworkCoreFromSqlRawWithParameters()
     {
         ArgumentNullException.ThrowIfNull(_dbContext);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
@@ -304,7 +304,7 @@ public class TheBenchmark
     }
 
     [Benchmark]
-    public async ValueTask EntityFrameworkCoreFromSqlRawHardCoded()
+    public async ValueTask EntityFrameworkCoreFromSqlRawWithHardCodedLiterals()
     {
         ArgumentNullException.ThrowIfNull(_dbContext);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);

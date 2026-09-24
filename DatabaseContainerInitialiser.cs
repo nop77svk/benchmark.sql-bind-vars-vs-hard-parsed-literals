@@ -8,7 +8,7 @@ using DotNet.Testcontainers.Containers;
 using Oracle.ManagedDataAccess.Client;
 using Testcontainers.Oracle;
 
-public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
+public class DatabaseContainerInitialiser : IAsyncDisposable
 {
     private const string OracleDockerImageUri = @"container-registry.oracle.com/database/free:latest";
     private const string OracleDockerDatabaseCharset = @"AL32UTF8";
@@ -23,9 +23,9 @@ public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
 
     public OracleContainer Container { get; }
 
-    public static async Task<BenchmarkDatabaseContainerInitializer> CreateAsync(int hostPort, CancellationToken cancellationToken)
+    public static async Task<DatabaseContainerInitialiser> CreateAsync(int hostPort, CancellationToken cancellationToken)
     {
-        BenchmarkDatabaseContainerInitializer result = new BenchmarkDatabaseContainerInitializer(hostPort);
+        DatabaseContainerInitialiser result = new DatabaseContainerInitialiser(hostPort);
         await result.Container.StartAsync(cancellationToken);
         await EnsureNoErrorsInContainerLogs(result.Container, cancellationToken);
         return result;
@@ -34,7 +34,7 @@ public class BenchmarkDatabaseContainerInitializer : IAsyncDisposable
     public static string GetBasicDatabaseConnectionDataSource(string hostAddress, int servicePort, string serviceName, string protocol = "TCP")
         => $"(DESCRIPTION=(ADDRESS=(PROTOCOL={protocol})(HOST={hostAddress})(PORT={servicePort}))(CONNECT_DATA=(SERVICE_NAME={serviceName})))";
 
-    private BenchmarkDatabaseContainerInitializer(int? hostPort = null)
+    private DatabaseContainerInitialiser(int? hostPort = null)
     {
         OracleBuilder builder = new OracleBuilder(OracleDockerImageUri)
             .WithAutoRemove(true)

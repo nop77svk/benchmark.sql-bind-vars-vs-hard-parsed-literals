@@ -12,7 +12,7 @@ public static class GlobalContext
     public const int RowsToSeed = 160_000;
 
     public static string BasicDatabaseConnectionDataSource
-        => BenchmarkDatabaseContainerInitializer.GetBasicDatabaseConnectionDataSource("127.0.0.1", ContainerHostPort, "freepdb1");
+        => DatabaseContainerInitialiser.GetBasicDatabaseConnectionDataSource("127.0.0.1", ContainerHostPort, "freepdb1");
 
     public static string SysDbaConnectionString
         => new OracleConnectionStringBuilder()
