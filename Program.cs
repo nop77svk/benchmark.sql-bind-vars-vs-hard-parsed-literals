@@ -2,6 +2,7 @@ namespace BenchmarkBindVarsAndHardcodesInOracle;
 
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using BenchmarkDotNet.Running;
 using Oracle.ManagedDataAccess.Client;
 
@@ -32,6 +33,7 @@ internal static class Program
                 .WithMaxIterationCount(GlobalContext.RowsToSeed * 2 / invocationCount)
                 .WithMinIterationCount(GlobalContext.RowsToSeed * 1 / invocationCount)
                 .WithInvocationCount(invocationCount)
+                .WithToolchain(new InProcessEmitToolchain(TimeSpan.FromHours(24), true))
             );
         BenchmarkRunner.Run<TheBenchmark>(benchmarkConfig);
 
