@@ -6,14 +6,15 @@
 
     <ItemGroup>
         <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.12">
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.14">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.12" />
-        <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26301" />
-        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.301" />
-        <PackageReference Include="Testcontainers.Oracle" Version="4.15.0" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="10.0.14" />
+        <PackageReference Include="Oracle.EntityFrameworkCore" Version="10.23.26400" />
+        <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.400" />
+        <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.2" />
+        <PackageReference Include="Testcontainers.Oracle" Version="4.16.0" />
     </ItemGroup>
 
     <ItemGroup>
