@@ -83,8 +83,6 @@ public class TheBenchmark
             ConnectionString = connectionString
         };
 
-        Console.WriteLine($"*** Connection string = {_dbContext.ConnectionString}");
-
         _seededRows = GlobalContext.RowsToSeed;
         _lastId = -1;
 

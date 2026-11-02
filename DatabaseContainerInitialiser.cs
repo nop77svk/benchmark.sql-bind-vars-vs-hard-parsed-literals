@@ -80,8 +80,6 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
     public OracleConnection GetDatabaseConnection(string userName, string password)
     {
         string connectionString = GetConnectionString(userName, password);
-        Console.WriteLine($"Connection string = {connectionString}");
-
         OracleConnection result = new OracleConnection(connectionString)
         {
             AutoCommit = false
