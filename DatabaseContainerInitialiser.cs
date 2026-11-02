@@ -17,7 +17,9 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
     private static readonly Regex _rxDatabaseIsReadyToUse = new Regex(@"^\s*DATABASE\s+IS\s+READY\s+TO\s+USE\s*!\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
     private static readonly Regex _rxCustomScriptsExecutionStarted = new Regex(@"^\s*Executing\s+user\s+defined\s+scripts\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
     private static readonly Regex _rxCustomScriptsExecutionFinished = new Regex(@"^\s*DONE:\s*Executing\s+user\s+defined\s+scripts\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
-    private static readonly Regex _rxLoggedExceptions = new Regex(@"^(\d{1,4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2}(\.\d+)?\S+\s*)?(ORA|TNS|SP2)-\d+\s*:", RegexOptions.Compiled | RegexOptions.Multiline, _logsRegexpParsingTimeOut);
+    private static readonly Regex _rxLoggedExceptions = new Regex(@"^(\d{1,4}-\d{1,2}-\d{1,2}T\d{1,2}:\d{1,2}:\d{1,2}(\.\d+)?\S+\s*)?(ORA|TNS|SP2)-\d+\s*:", RegexOptions.Compiled | RegexOptions.Multiline | RegexOptions.ExplicitCapture, _logsRegexpParsingTimeOut);
+
+    private static readonly Regex _rxTnsConnectDataServiceName = new Regex(@"\(\s*SERVICE_NAME\s*=\s*[^)]*\)", RegexOptions.IgnoreCase | RegexOptions.Compiled, TimeSpan.FromSeconds(1));
 
     private bool _disposedValue;
 
@@ -30,9 +32,6 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
         await EnsureNoErrorsInContainerLogs(result.Container, cancellationToken);
         return result;
     }
-
-    public static string GetBasicDatabaseConnectionDataSource(string hostAddress, int servicePort, string serviceName, string protocol = "TCP")
-        => $"(DESCRIPTION=(ADDRESS=(PROTOCOL={protocol})(HOST={hostAddress})(PORT={servicePort}))(CONNECT_DATA=(SERVICE_NAME={serviceName})))";
 
     private DatabaseContainerInitialiser(int? hostPort = null)
     {
@@ -69,19 +68,18 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    public OracleConnection GetDatabaseConnection(string userName, string password)
+    public string GetConnectionString(string userName, string password)
     {
-        OracleConnectionStringBuilder connectionStringBuilder = new OracleConnectionStringBuilder();
-        connectionStringBuilder.DataSource = GetBasicDatabaseConnectionDataSource(
-            hostAddress: "127.0.0.1",
-            servicePort: Container.GetMappedPublicPort(),
-            serviceName: "freepdb1"
-        );
+        OracleConnectionStringBuilder connectionStringBuilder = new OracleConnectionStringBuilder(Container.GetConnectionString());
+        connectionStringBuilder.DataSource = _rxTnsConnectDataServiceName.Replace(connectionStringBuilder.DataSource, "(service_name = freepdb1)");
         connectionStringBuilder.UserID = userName;
         connectionStringBuilder.Password = password;
-        string connectionString = connectionStringBuilder.ConnectionString;
-        Console.WriteLine($"Connection string = {connectionString}");
+        return connectionStringBuilder.ConnectionString;
+    }
 
+    public OracleConnection GetDatabaseConnection(string userName, string password)
+    {
+        string connectionString = GetConnectionString(userName, password);
         OracleConnection result = new OracleConnection(connectionString)
         {
             AutoCommit = false
@@ -92,6 +90,9 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
 
     public OracleConnection GetSystemUserDatabaseConnection()
         => GetDatabaseConnection("SYSTEM", GlobalContext.SysDbPw);
+
+    public OracleConnection GetBenchmarkUserDatabaseConnection()
+        => GetDatabaseConnection(GlobalContext.BenchmarkDbUser, GlobalContext.BenchmarkDbPw);
 
     protected virtual async ValueTask DisposeAsync(bool disposing)
     {

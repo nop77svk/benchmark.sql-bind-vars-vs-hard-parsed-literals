@@ -2,6 +2,7 @@ namespace BenchmarkBindVarsAndHardcodesInOracle;
 
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 using BenchmarkDotNet.Running;
 using Oracle.ManagedDataAccess.Client;
 
@@ -12,10 +13,11 @@ internal static class Program
         CancellationToken cancellationToken = CancellationToken.None;
 
         Console.WriteLine("*** Initializing the test container");
-        await using DatabaseContainerInitialiser containerInitializer = await DatabaseContainerInitialiser.CreateAsync(GlobalContext.ContainerHostPort, cancellationToken);
+        await using DatabaseContainerInitialiser containerInitialiser = await DatabaseContainerInitialiser.CreateAsync(GlobalContext.ContainerHostPort, cancellationToken);
+        GlobalContext.ContainerInitialiser = containerInitialiser;
 
         Console.WriteLine("*** Seeding the test data");
-        using (OracleConnection benchmarkConnection = containerInitializer.GetDatabaseConnection(GlobalContext.BenchmarkDbUser, GlobalContext.BenchmarkDbPw))
+        using (OracleConnection benchmarkConnection = containerInitialiser.GetBenchmarkUserDatabaseConnection())
         {
             await benchmarkConnection.OpenAsync(cancellationToken);
             int rowsSeeded = await TheBenchmark.SeedTheTestDataAsync(benchmarkConnection, GlobalContext.RowsToSeed, cancellationToken);
@@ -27,10 +29,11 @@ internal static class Program
         Console.WriteLine("*** Executing the benchmark");
         int invocationCount = (int)Math.Max(16, Math.Pow(2, Math.Ceiling(Math.Log2(Math.Sqrt(GlobalContext.RowsToSeed * 2)))));
         IConfig benchmarkConfig = ManualConfig.CreateMinimumViable()
-            .AddJob(Job.Default
+            .AddJob(Job.InProcess
                 .WithMaxIterationCount(GlobalContext.RowsToSeed * 2 / invocationCount)
                 .WithMinIterationCount(GlobalContext.RowsToSeed * 1 / invocationCount)
                 .WithInvocationCount(invocationCount)
+                .WithToolchain(new InProcessEmitToolchain(TimeSpan.FromHours(24), true))
             );
         BenchmarkRunner.Run<TheBenchmark>(benchmarkConfig);
 

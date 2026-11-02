@@ -1,7 +1,5 @@
 namespace BenchmarkBindVarsAndHardcodesInOracle;
 
-using Oracle.ManagedDataAccess.Client;
-
 public static class GlobalContext
 {
     public const string BenchmarkDbUser = "BENCHMARK";
@@ -11,23 +9,5 @@ public static class GlobalContext
 
     public const int RowsToSeed = 160_000;
 
-    public static string BasicDatabaseConnectionDataSource
-        => DatabaseContainerInitialiser.GetBasicDatabaseConnectionDataSource("127.0.0.1", ContainerHostPort, "freepdb1");
-
-    public static string SysDbaConnectionString
-        => new OracleConnectionStringBuilder()
-        {
-            DataSource = BasicDatabaseConnectionDataSource,
-            UserID = "SYS",
-            Password = SysDbPw,
-            DBAPrivilege = "SYSDBA"
-        }.ConnectionString;
-
-    public static string BenchMarkUserConnectionString
-        => new OracleConnectionStringBuilder()
-        {
-            DataSource = BasicDatabaseConnectionDataSource,
-            UserID = BenchmarkDbUser,
-            Password = BenchmarkDbPw
-        }.ConnectionString;
+    public static DatabaseContainerInitialiser? ContainerInitialiser { get; set; } = null;
 }
