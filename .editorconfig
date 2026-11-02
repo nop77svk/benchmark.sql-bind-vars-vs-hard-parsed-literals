@@ -1,4 +1,4 @@
-﻿root = true
+root = true
 
 [*]
 charset = utf-8
@@ -68,3 +68,13 @@ dotnet_diagnostic.IDE0305.severity = none # Use collection expression for fluent
 dotnet_diagnostic.S2368.severity = none # Make this constructor private or simplify its parameters
 dotnet_diagnostic.S2955.severity = none # Use a comparison to 'default(TCell)'
 dotnet_diagnostic.S3358.severity = none # Extract this nested ternary operation into an independent statement
+
+# ================================================================================================
+# Meziantou
+
+dotnet_diagnostic.MA0004.severity = none
+dotnet_diagnostic.MA0015.severity = none
+
+# ================================================================================================
+[*DbContext*.cs]
+dotnet_diagnostic.S3251.severity = none
