@@ -71,15 +71,19 @@ public class TheBenchmark
     public async Task GlobalSetup()
     {
         Console.WriteLine("*** Global setup");
-        _connection = GlobalContext.ContainerInitialiser?.GetBenchmarkUserDatabaseConnection()
+        string connectionString = GlobalContext.ContainerInitialiser?.GetConnectionString(GlobalContext.BenchmarkDbUser, GlobalContext.BenchmarkDbPw)
             ?? throw new Exception("Container not initialised");
 
+        Console.WriteLine($"*** Connection string = {connectionString}");
+        _connection = new OracleConnection(connectionString);
         await _connection.OpenAsync(_cancellationTokenSource.Token);
 
         _dbContext = new AppDbContext()
         {
-            ConnectionString = _connection.ConnectionString
+            ConnectionString = connectionString
         };
+
+        Console.WriteLine($"*** Connection string = {_dbContext.ConnectionString}");
 
         _seededRows = GlobalContext.RowsToSeed;
         _lastId = -1;

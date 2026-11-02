@@ -33,9 +33,6 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
         return result;
     }
 
-    public static string GetBasicDatabaseConnectionDataSource(string hostAddress, int servicePort, string serviceName, string protocol = "TCP")
-        => $"(DESCRIPTION=(ADDRESS=(PROTOCOL={protocol})(HOST={hostAddress})(PORT={servicePort}))(CONNECT_DATA=(SERVICE_NAME={serviceName})))";
-
     private DatabaseContainerInitialiser(int? hostPort = null)
     {
         OracleBuilder builder = new OracleBuilder(OracleDockerImageUri)
@@ -71,13 +68,18 @@ public class DatabaseContainerInitialiser : IAsyncDisposable
         GC.SuppressFinalize(this);
     }
 
-    public OracleConnection GetDatabaseConnection(string userName, string password)
+    public string GetConnectionString(string userName, string password)
     {
         OracleConnectionStringBuilder connectionStringBuilder = new OracleConnectionStringBuilder(Container.GetConnectionString());
         connectionStringBuilder.DataSource = _rxTnsConnectDataServiceName.Replace(connectionStringBuilder.DataSource, "(service_name = freepdb1)");
         connectionStringBuilder.UserID = userName;
         connectionStringBuilder.Password = password;
-        string connectionString = connectionStringBuilder.ConnectionString;
+        return connectionStringBuilder.ConnectionString;
+    }
+
+    public OracleConnection GetDatabaseConnection(string userName, string password)
+    {
+        string connectionString = GetConnectionString(userName, password);
         Console.WriteLine($"Connection string = {connectionString}");
 
         OracleConnection result = new OracleConnection(connectionString)
