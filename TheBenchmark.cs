@@ -312,6 +312,8 @@ public class TheBenchmark
         }
     }
 
+#pragma warning disable S2077 // Use parametrised query instead of hardcoded literals
+#pragma warning disable EF1002 // Use parametrised query instead of hardcoded literals
     [Benchmark]
     public async ValueTask EntityFrameworkCoreFromSqlRawWithHardCodedLiterals()
     {
@@ -336,6 +338,8 @@ public class TheBenchmark
             throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
         }
     }
+#pragma warning restore EF1002
+#pragma warning restore S2077
 
     private static async Task FlushSharedPoolAsync(CancellationToken cancellationToken)
     {
