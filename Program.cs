@@ -28,7 +28,7 @@ internal static class Program
         Console.WriteLine("*** Executing the benchmark");
         int invocationCount = (int)Math.Max(16, Math.Pow(2, Math.Ceiling(Math.Log2(Math.Sqrt(GlobalContext.RowsToSeed * 2)))));
         IConfig benchmarkConfig = ManualConfig.CreateMinimumViable()
-            .AddJob(Job.Default
+            .AddJob(Job.InProcess
                 .WithMaxIterationCount(GlobalContext.RowsToSeed * 2 / invocationCount)
                 .WithMinIterationCount(GlobalContext.RowsToSeed * 1 / invocationCount)
                 .WithInvocationCount(invocationCount)
