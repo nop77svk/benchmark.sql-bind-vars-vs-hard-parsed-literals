@@ -71,26 +71,14 @@ public class TheBenchmark
     public async Task GlobalSetup()
     {
         Console.WriteLine("*** Global setup");
-        var connectionStringBuilder = new OracleConnectionStringBuilder()
-        {
-            DataSource = DatabaseContainerInitialiser.GetBasicDatabaseConnectionDataSource(
-                hostAddress: "127.0.0.1",
-                servicePort: GlobalContext.ContainerHostPort,
-                serviceName: "freepdb1"
-            ),
-            UserID = GlobalContext.BenchmarkDbUser,
-            Password = GlobalContext.BenchmarkDbPw
-        };
+        _connection = GlobalContext.ContainerInitialiser?.GetBenchmarkUserDatabaseConnection()
+            ?? throw new Exception("Container not initialised");
 
-        string connectionString = connectionStringBuilder.ConnectionString;
-        Console.WriteLine($"*** Connection string = {connectionString}");
-
-        _connection = new OracleConnection(connectionString);
         await _connection.OpenAsync(_cancellationTokenSource.Token);
 
         _dbContext = new AppDbContext()
         {
-            ConnectionString = connectionString
+            ConnectionString = _connection.ConnectionString
         };
 
         _seededRows = GlobalContext.RowsToSeed;
@@ -103,6 +91,11 @@ public class TheBenchmark
     public async Task GlobalCleanup()
     {
         Console.WriteLine("*** Global cleanup");
+
+        if (_dbContext != null)
+        {
+            await _dbContext.DisposeAsync();
+        }
 
         await FlushSharedPoolAsync(_cancellationTokenSource.Token);
 
@@ -330,7 +323,9 @@ public class TheBenchmark
 
     private static async Task FlushSharedPoolAsync(CancellationToken cancellationToken)
     {
-        await using OracleConnection sysConnection = new OracleConnection(GlobalContext.SysDbaConnectionString);
+        await using OracleConnection sysConnection = GlobalContext.ContainerInitialiser?.GetSystemUserDatabaseConnection()
+            ?? throw new Exception("Container not initialised");
+
         await sysConnection.OpenAsync(cancellationToken);
 
         await using OracleCommand flushSharedPool = sysConnection.CreateCommand();
