@@ -223,6 +223,22 @@ public class TheBenchmark
     }
 
     [Benchmark]
+    public async ValueTask EntityFrameworkCoreWithCompiledLinq()
+    {
+        ArgumentNullException.ThrowIfNull(_dbContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(_seededRows, 0);
+
+        _lastId = (_lastId + 1) % _seededRows;
+
+        int? fetchedId = await _compiledTestDataQuery(_dbContext, _lastId + 1, _cancellationTokenSource.Token);
+
+        if (fetchedId != _lastId + 1)
+        {
+            throw new Exception($"Fetched id {fetchedId} != last id {_lastId} + 1");
+        }
+    }
+
+    [Benchmark]
     public async ValueTask EntityFrameworkCoreFromSqlOnFormattableString()
     {
         ArgumentNullException.ThrowIfNull(_dbContext);
@@ -336,4 +352,13 @@ public class TheBenchmark
 
         await sysConnection.CloseAsync();
     }
+
+    private static readonly Func<AppDbContext, int, CancellationToken, Task<int?>> _compiledTestDataQuery
+        = EF.CompileAsyncQuery((AppDbContext dbContext, int id, CancellationToken cancellationToken)
+            => dbContext.TestData
+                .AsNoTracking()
+                .Where(x => x.Id == id)
+                .Select(x => (int?)x.Id)
+                .FirstOrDefault()
+        );
 }
